@@ -3,16 +3,16 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 import pandas as pd
 import time
-from selenium.webdriver.firefox.options import Options
 
-def dataset():
-    dff = pd.read_csv(r"names.csv")
-    dff=dff[dff.name.str.contains("[a-z,A-z]")==True]
-    dff=dff[dff.name.str.contains("[@,0-9,/,-]")==True]
-    dname=pd.concat([dff]) 
-    return dname['name']
-
-def facebookscrap(user):
+def dataset(namefile,type,header=None):
+    with open(namefile, 'w') as f:
+        w = csv.writer(f)
+        if header is not None:
+            w.writerow(header)
+        for row in type:
+            w.writerow(row)
+            
+def facebookscrap():
     sections = {
         'photo_url': {'src':'//div[@id="objects_container"]//a/img[@alt][1]'},
         #'tagline': {'txt':'//*[@id="root"]/div[1]/div[1]/div[2]/div[2]'},
@@ -34,28 +34,33 @@ def facebookscrap(user):
         'Relationship':{'txt':"/html/body/div/div/div[2]/div/div[1]/div[7]/div/div[2]/div/div/div"},
         'Address':{'txt':'/html/body/div/div/div[2]/div/div[1]/div[5]/div/div[2]/div[2]/table/tbody/tr/td[2]/div/a'}
     }
-    options = Options()
-    options.add_argument('--headless')
-    driver = webdriver.Firefox(executable_path='facebook/geckodriver',options=options)
+    chrome_options = webdriver.ChromeOptions()
+    prefs = {"profile.default_content_setting_values.notifications" : 2}
+    chrome_options.add_experimental_option("prefs", prefs)
+    chrome_options.add_argument("--headless")
+    driver = webdriver.Chrome('D:/ChromeDriver/chromedriver.exe')
     driver.get("https://mbasic.facebook.com/noiemany.noiemany")
     element = driver.find_element_by_css_selector("a.u:nth-child(3)")
     element.click()
     element = driver.find_element_by_name("email")
-    element.send_keys('username')
+    element.send_keys('compnew2006@gmail.com')
     element = driver.find_element_by_name("pass")
-    element.send_keys('password')
+    element.send_keys('0107181781Aa#')
     element = driver.find_element_by_name("login")
     element.click()
     print("Logged in....")
-    
+    read = open('names.csv', 'r')
+    list = []
+    for row in read:
+        list.append(row.replace('\n',''))
     h=[]
     ki=[]
     lh=[]
     mkk=[]
-    for username in [user]:
+    for username in list:
         print(username)
         try:
-            driver.get("https://mbasic.facebook.com/" + user)
+            driver.get("https://mbasic.facebook.com/" + username)
             name=driver.find_element_by_xpath('/html/body/div/div/div[2]/div/div[1]/div[1]/div[2]/div[1]/span/div/span/strong')
             d = {'name': name.text}
             x = driver.find_element_by_xpath
@@ -113,14 +118,10 @@ def facebookscrap(user):
                                         'title': event.text,
                                         'link': event.get_attribute('href')[8:].split('refid')[0]
                                     })
-                
                     except Exception:
                         pass
             lh.append(d)
-            
-            
             info_str = ""
-            
             for key in d.keys():
                     h=[]
                     info_str = info_str + key.upper()+": "
@@ -131,19 +132,12 @@ def facebookscrap(user):
                                 #print(itm)
                                 for kff in itm.keys():
                                     info_str = info_str + "\t"+kff.upper()+": "+str(itm[kff])+"\n"
-
                     else:
                         info_str = info_str + d[key]+"\n"
                     h.append(info_str)
                     mkk.append(info_str)
-
-
-
         except:
             pass
-   
-    
-    
     return(pd.DataFrame(lh))
 def ifd():
     if(len(fbdb())==0):
@@ -151,17 +145,14 @@ def ifd():
     else:
         df['id'] = [i+1 for i in range(max(fbdb().id),len(df)+max(fbdb().id))]
     return df['id']
-
 def connectdb():
     from pymongo import MongoClient as client
     connect = client('mongodb://localhost:27017/')
     db=connect.osint
     return db
 def update():  
-        
         y= connectdb()
         fd=y['fund_facebook']
-
         import json
         records = json.loads(df.T.to_json()).values()
         for r in records:
@@ -170,7 +161,6 @@ def update():
 def fbdb():
     y= connectdb()
     df=y['fund_facebook']
-    
     k = []
     for x in df.find():
         k.append(x)
@@ -180,15 +170,8 @@ def fbdb():
     except:
         pass
     return df
-        
 if __name__=='__main__':
-    start = time.time()
-    
-    for i in dataset():
-        df=facebookscrap(i)
-        time.sleep(1)
-        ifd()
-        update()
-        print(i)
-    final = time.time()-start
-    print(final/60/60/24)
+    df=facebookscrap()
+    ifd()
+    update()
+    #print(i)
